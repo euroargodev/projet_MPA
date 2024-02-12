@@ -229,7 +229,7 @@ def main():
 
     longitude = st.sidebar.slider("longitude", min_value=-180.0, max_value=180.0, value=[-75.0, -45.0])
     latitude = st.sidebar.slider("Latitude ", min_value=-90.0, max_value=90.0, value=[30.0, 20.0])
-    profondeur = st.sidebar.slider("Profondeur", min_value=0.0, max_value=1000.0, value=[0.0, 1000.0])
+    profondeur = st.sidebar.slider("Profondeur", min_value=0.0, max_value=6000.0, value=[0.0, 1000.0])
     date_debut = st.sidebar.date_input("date début", (dt.date(2010, 1, 1)), format="YYYY-MM-DD")
     date_fin = st.sidebar.date_input("date fin", (dt.date(2010, 12, 1)), format="YYYY-MM-DD")
     llon = longitude[0]
