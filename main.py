@@ -5,7 +5,9 @@
 # pour mettre en place sur un nouvel ordinateur environment MPA avec le fichier environement.yml : conda env create -f environment.yml
 # pour ouvrir  anaconda navigotor ( gestionnaire environemment) : anaconda-navigator
 
-import gsw 
+from statistics import mean
+import gsw
+from matplotlib import pyplot as plt 
 import streamlit as st
 import xarray as xr
 from argopy import DataFetcher as ArgoDataFetcher
@@ -27,7 +29,7 @@ def int_to_rgb(i):
     b = hex((i*i*i*2)%15).replace("0x","")
     return "#"+r*2+g*2+b*2
 
-def recup_argo_data(llon:float,rlon:float, llat:float,ulat:float, depthmin:float, depthmax:float,time_in:str,time_f:str):
+def recup_argo_data(llon:float,rlon:float, llat:float,ulat:float, depthmin:float, depthmax:float,intervalle:int,time_in:str,time_f:str):
 
      # Temporarily redefine np.int to int -> car sinon on a une erreur np.int est deprecier dans NumPy 1.20
     np.int = int
@@ -40,8 +42,8 @@ def recup_argo_data(llon:float,rlon:float, llat:float,ulat:float, depthmin:float
     #recuperer les données SIG0 et N2(BRV2) avec teos 10
     ds.argo.teos10(['SIG0','N2'])
 
-    # z est créé pour représenter des profondeurs de 0 à la profondeur maximale avec un intervalle de 5 mètres ( peux etre modifié)
-    z=np.arange(0,depthmax,5)
+    # z est créé pour représenter des profondeurs de la profondeur minimum à la profondeur maximale avec un intervalle de 5 mètres ( peux etre modifié)
+    z=np.arange(depthmin,depthmax,intervalle)
     #interpole ds avec les profondeurs z
     ds2 = ds.argo.interp_std_levels(z)
 
@@ -230,6 +232,7 @@ def main():
     longitude = st.sidebar.slider("longitude", min_value=-180.0, max_value=180.0, value=[-75.0, -45.0])
     latitude = st.sidebar.slider("Latitude ", min_value=-90.0, max_value=90.0, value=[30.0, 20.0])
     profondeur = st.sidebar.slider("Profondeur", min_value=0.0, max_value=6000.0, value=[0.0, 1000.0])
+    interpolation = st.sidebar.slider("intervalle interpolation", min_value=1, max_value=10, value=5)
     date_debut = st.sidebar.date_input("date début", (dt.date(2010, 1, 1)), format="YYYY-MM-DD")
     date_fin = st.sidebar.date_input("date fin", (dt.date(2010, 12, 1)), format="YYYY-MM-DD")
     llon = longitude[0]
@@ -255,7 +258,7 @@ def main():
     button_class_data = st.sidebar.button("classifier les données")
 
     if button_fetch_data:
-        st.session_state.ds  = recup_argo_data(llon,rlon, llat,ulat, depthmin, depthmax,time_in,time_f)
+        st.session_state.ds  = recup_argo_data(llon,rlon, llat,ulat, depthmin, depthmax,interpolation,time_in,time_f)
         st.session_state.button_class_data_pressed = False
         st.session_state.button_fetch_data_pressed = True
         
@@ -357,31 +360,70 @@ def main():
 
     # graphique canvas
     if st.session_state.button_class_data_pressed :
-        #graphique temperature
+        #st.write(st.session_state.ds_py)
+        #graphique quantile profil temperature        
+        if 'TEMP_Q' in st.session_state.ds_py:
+            with st.expander("quantile temperature"):
+                fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['TEMP_Q'], maxcols=4, figsize=(10, 8), sharey=True)
+                st.pyplot(fig)
+                
 
-        
-        if 'TEMP_QI' in st.session_state.ds_py:
-            st.write("test")
+        #gaphique quantile profil salinité
+        if 'PSAL_Q' in st.session_state.ds_py:   
+            with st.expander("quantile salinité"): 
+                fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['PSAL_Q'], maxcols=4, figsize=(10, 8), sharey=True)
+                st.pyplot(fig)
 
-        with st.expander("quantile temperature"):
-            fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['TEMP_Q'], maxcols=4, figsize=(10, 8), sharey=True)
-            st.pyplot(fig)
-        #gaphique salinité 
-        with st.expander("quantile salinité"): 
-            fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['PSAL_Q'], maxcols=4, figsize=(10, 8), sharey=True)
-            st.pyplot(fig)
         with st.expander("scaler propertie"):
             fig, ax = st.session_state.m.plot.scaler()
             st.pyplot(fig) 
         with st.expander("reducer properties"):
             fig, ax = st.session_state.m.plot.reducer()
             st.pyplot(fig)
-        with st.expander("preprocesse data  1"):
-            g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP', 'salinity': 'PSAL'}, style='darkgrid')   
-            st.pyplot(g)
-        with st.expander("preprocesse data 2"):
-            g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP', 'salinity': 'PSAL'},kde=True)
-            st.pyplot(g)
+        
+        if ('TEMP_Q' in st.session_state.ds_py) and ('PSAL_Q' in st.session_state.ds_py):
+            with st.expander("preprocesse data  1"):
+                g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP', 'salinity': 'PSAL'}, style='darkgrid')   
+                st.pyplot(g)
+            with st.expander("preprocesse data 2"):
+                g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP', 'salinity': 'PSAL'},kde=True)
+                st.pyplot(g)
+        elif 'TEMP_Q' not in st.session_state.ds_py :
+            with st.expander("preprocesse data  1"):
+                g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'salinity': 'PSAL'}, style='darkgrid')   
+                st.pyplot(g)
+            with st.expander("preprocesse data 2"):
+                g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'salinity': 'PSAL'},kde=True)
+                st.pyplot(g)
+        else :
+            with st.expander("preprocesse data  1"):
+                g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP'}, style='darkgrid')   
+                st.pyplot(g)
+            with st.expander("preprocesse data 2"):
+                g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP'},kde=True)
+                st.pyplot(g)
+
+        colum_x = st.selectbox('Sélectionner x', st.session_state.ds_py.to_dataframe().columns)
+        ds_data = st.session_state.ds_py.copy(deep =True)
+        ds_data = ds_data.isel(DEPTH=0)
+        st.write(ds_data)
+        # Récupérer les données de la colonne sélectionnée
+        data_x = ds_data[colum_x].values
+
+        # Afficher les données de la colonne sélectionnée
+        st.write(f"Vous avez sélectionné la colonne : {colum_x}")
+        st.write(data_x)
+
+        # Tracer un graphique avec Matplotlib
+        fig, ax = plt.subplots()
+        ax.plot(data_x)
+        ax.plot(range(0,1000, 5), [mean(st.session_state.ds_py.isel(DEPTH=x))[colum_x].values for x in range(0,1000, 5)])
+        ax.set_xlabel('Index')
+        ax.set_ylabel('Valeurs')
+        ax.set_title(f'Données de {colum_x}')
+        st.pyplot(fig)
+   
+
 
 
 
