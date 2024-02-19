@@ -152,6 +152,22 @@ plt.show()
 
 
 
+"""
+        colum_x = st.selectbox('Sélectionner x', st.session_state.ds_py.to_dataframe().columns)
+        ds_data = st.session_state.ds_py.copy(deep =True)
+
+        mean_by_depth = ds_data.mean(dim='N_PROF')[colum_x]
+        depth_values = ds_data.coords['DEPTH'].values
+
+        fig, ax = plt.subplots()
+        ax.plot(mean_by_depth,depth_values)
+        ax.set_xlabel('Moyenne de {colum_x}')
+        ax.set_ylabel('Profondeur')
+        ax.set_title(f'Moyenne de {colum_x} par profondeur')
+        ax.invert_yaxis()  # Inverser l'axe y pour avoir la profondeur croissante vers le bas
+        st.pyplot(fig)
+        
+"""
 
 # Reset np.int to its original value
 np.int = np.int_

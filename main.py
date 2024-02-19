@@ -23,6 +23,7 @@ from argopy import DataFetcher as ArgoDataFetcher
 import math
 
 
+
 def int_to_rgb(i):
     r = hex((i*i+10)%15).replace("0x","")
     g = hex((i*5)%15).replace("0x","")
@@ -88,7 +89,7 @@ def recup_argo_data(llon:float,rlon:float, llat:float,ulat:float, depthmin:float
     return da
 
 # pyxpcm profil salinité et température 
-def pyxpcm_sal_temp(da, k ):
+def pyxpcm_sal_temp(da, k,quan ):
 
     #copy da pour éviter ecrasement de da
     ds_sal_temp = da.copy(deep=True)
@@ -115,16 +116,17 @@ def pyxpcm_sal_temp(da, k ):
     m.predict(ds_sal_temp, features=features_in_ds, dim=features_zdim,inplace=True)
     m.predict_proba(ds_sal_temp, features=features_in_ds, inplace=True)
 
-    # mise en place des quantiles - > penser à faire un choix pour les quantiles dans la sidebar  
+
+    # Utiliser la liste de quantiles dans la fonction
     for vname in ['TEMP', 'PSAL']:
-        ds_sal_temp = ds_sal_temp.pyxpcm.quantile(m, q=[0.05, 0.5, 0.95], of=vname, outname=vname + '_Q', keep_attrs=True, inplace=True)
+        ds_sal_temp = ds_sal_temp.pyxpcm.quantile(m, q=quan, of=vname, outname=vname + '_Q', keep_attrs=True, inplace=True)
 
     # Reset np.int 
     np.int = np.int_
     return ds_pcm_sal_temp,ds_sal_temp, m
 
 # pyxpcm profil temperature uniquement
-def pyxpcm_temp(da, k):
+def pyxpcm_temp(da, k, quan):
     
     #copy da pour éviter ecrasement de da
     ds_temp = da.copy(deep=True)
@@ -158,7 +160,7 @@ def pyxpcm_temp(da, k):
     return ds_pcm_temp,ds_temp, m
 
 # pyxpcm profil salinité changer da en  da_resultat
-def pyxpcm_sal(da, k):
+def pyxpcm_sal(da, k, quan):
 
     #copy da pour éviter ecrasement de da
     ds_sal = da.copy(deep=True)
@@ -251,9 +253,18 @@ def main():
     pyxpcm_text = '<b><font color="blue" size="5">parametre pyxpcm</font></b>'
     st.sidebar.markdown(pyxpcm_text, unsafe_allow_html=True)
     clusters = st.sidebar.slider("nombre de clusters(K)", min_value=2, max_value=20, value=6)
+    #quantiles = st.sidebar.text_input("quantiles, séparer avec des virgules (0- 100%)", value="0.05, 0.05, 0.95")
     prof_salinite = st.sidebar.checkbox('salinite', value=True)
     prof_temperature =st.sidebar.checkbox('temperature',value= True)
-
+    # Nombre initial d'entrées
+    num_entries = st.sidebar.number_input("Nombre quantiles", min_value=1, max_value=10, step=1, value=3)
+    # valeurs par défaut pour les quantiles
+    quantiles = []
+    default_values = [0.05, 0.5, 0.95]  
+    for i in range(num_entries):
+        default_value = default_values[i] if i < len(default_values) else 0.00  # si on dépasse les valeurs par défaut, revenir à 0.05
+        quantile_input = st.sidebar.number_input(f"quantile {i+1}", value=default_value)
+        quantiles.append(quantile_input)
     #button active la classification des données argopy
     button_class_data = st.sidebar.button("classifier les données")
 
@@ -266,11 +277,11 @@ def main():
     if button_class_data:
         if st.session_state.ds != None :
             if (prof_salinite) and (prof_temperature):
-                st.session_state.ds_pcm, st.session_state.ds_py , st.session_state.m = pyxpcm_sal_temp(st.session_state.ds, clusters )
+                st.session_state.ds_pcm, st.session_state.ds_py , st.session_state.m = pyxpcm_sal_temp(st.session_state.ds, clusters, quantiles )
             elif (prof_salinite) and (not prof_temperature):
-                st.session_state.ds_pcm, st.session_state.ds_py, st.session_state.m = pyxpcm_sal(st.session_state.ds, clusters )
+                st.session_state.ds_pcm, st.session_state.ds_py, st.session_state.m = pyxpcm_sal(st.session_state.ds, clusters, quantiles )
             else:
-                st.session_state.ds_pcm, st.session_state.ds_py, st.session_state.m = pyxpcm_temp(st.session_state.ds, clusters )
+                st.session_state.ds_pcm, st.session_state.ds_py, st.session_state.m = pyxpcm_temp(st.session_state.ds, clusters, quantiles )
 
             ds_trier = st.session_state.ds_py.copy(deep =True)
             ds_trier = ds_trier.isel(DEPTH=0)
@@ -403,26 +414,8 @@ def main():
                 g = st.session_state.m.plot.preprocessed(st.session_state.ds_pcm, features={'temperature': 'TEMP'},kde=True)
                 st.pyplot(g)
 
-        colum_x = st.selectbox('Sélectionner x', st.session_state.ds_py.to_dataframe().columns)
-        ds_data = st.session_state.ds_py.copy(deep =True)
-        ds_data = ds_data.isel(DEPTH=0)
-        st.write(ds_data)
-        # Récupérer les données de la colonne sélectionnée
-        data_x = ds_data[colum_x].values
+        choix_type_graph =  st.selectbox('selectionner type de graphique',('quantile'))
 
-        # Afficher les données de la colonne sélectionnée
-        st.write(f"Vous avez sélectionné la colonne : {colum_x}")
-        st.write(data_x)
-
-        # Tracer un graphique avec Matplotlib
-        fig, ax = plt.subplots()
-        ax.plot(data_x)
-        ax.plot(range(0,1000, 5), [mean(st.session_state.ds_py.isel(DEPTH=x))[colum_x].values for x in range(0,1000, 5)])
-        ax.set_xlabel('Index')
-        ax.set_ylabel('Valeurs')
-        ax.set_title(f'Données de {colum_x}')
-        st.pyplot(fig)
-   
 
 
 
