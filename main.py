@@ -21,6 +21,34 @@ from pyxpcm.models import pcm
 import xarray as xr
 from argopy import DataFetcher as ArgoDataFetcher
 import math
+import plotly.express as px
+import plotly.graph_objects as go
+
+def afficher_graphiques_interactifs(df_points):
+    if df_points.empty:
+        return
+    # Créer un scatter plot interactif avec les clusters colorés
+    fig = px.scatter(df_points, x='TEMP', y='PSAL', color='PCM_LABELS',
+                     hover_data=['PSAL', 'LATITUDE', 'LONGITUDE', 'TIME'],
+                     title="Graphique interactif après clustering",
+                     labels={'TEMP': 'Temperature', 'PSAL': 'salinité'},
+                     width=800, height=600)
+
+    # Afficher le graphique
+    st.plotly_chart(fig, use_container_width=True)
+
+def get_pcm_labels_info(pcm_labels_value,pcm_labels_info):
+
+    if pcm_labels_value in pcm_labels_info:
+        return pcm_labels_info[pcm_labels_value]
+    else:
+        # Valeurs par défaut si la classe n'est pas trouvée
+        return {
+            'moyenne_salinite': None,
+            'temperature': None,
+            'latitude': None,
+            'longitude': None
+        }
 
 
 
@@ -123,6 +151,7 @@ def pyxpcm_sal_temp(da, k,quan, varmax ):
 
     # Reset np.int 
     np.int = np.int_
+    ds_sal_temp['PROFIL'] = 'PSAL & TEMP'
     return ds_pcm_sal_temp,ds_sal_temp, m
 
 # pyxpcm profil temperature uniquement
@@ -157,6 +186,7 @@ def pyxpcm_temp(da, k, quan, varmax):
 
     # Reset np.int
     np.int = np.int_
+    ds_temp['PROFIL'] = 'TEMP'
     return ds_pcm_temp,ds_temp, m
 
 # pyxpcm profil salinité changer da en  da_resultat
@@ -192,6 +222,7 @@ def pyxpcm_sal(da, k, quan, varmax):
 
     # Reset np.int 
     np.int = np.int_
+    ds_sal['PROFIL'] = 'PSAL'
     return ds_pcm_sal,ds_sal, m
 
 
@@ -206,6 +237,9 @@ if 'ds_py' not in st.session_state:
 
 if 'df_points' not in st.session_state:
     st.session_state.df_points = pd.DataFrame()
+
+if 'pcm_labels_info' not in st.session_state:
+    st.session_state.pcm_labels_info = None
 
 if 'button_fetch_data_pressed' not in st.session_state:
     st.session_state.button_fetch_data_pressed = False
@@ -317,15 +351,10 @@ def main():
         if graph_pro_ok :
             pro_hist_ok = st.checkbox("afficher avec histgramme ? attention lent", value=False)
 
-    if st.button("Valider graphiques"):
+    if st.sidebar.button("Afficher les graphiques"):
         st.session_state.graphs_updated = True 
 
 
-
-    
-    
-    
-    
 
     if button_fetch_data:
         st.session_state.ds  = recup_argo_data(llon,rlon, llat,ulat, depthmin, depthmax,interpolation,time_in,time_f)
@@ -346,11 +375,34 @@ def main():
             ds_trier = ds_trier.isel(DEPTH=0)
             ds_trier = ds_trier.isel(quantile=1)
             st.session_state.df_points= ds_trier.to_dataframe()
+            #création dictionnaire info class 
+            # Calcul des moyennes de salinité et de température par classe PCM_LABELS
+            pcm_labels_groups =st.session_state.df_points.copy(deep =True)
+            pcm_labels_groups = pcm_labels_groups.groupby('PCM_LABELS')
+            pcm_labels_moyennes = pcm_labels_groups.agg({
+                'PSAL': 'mean',
+                'TEMP': 'mean',
+                'LATITUDE': 'mean',
+                'LONGITUDE': 'mean'
+            }).reset_index()
+
+            st.session_state.pcm_labels_info = {}
+            for index, row in pcm_labels_moyennes.iterrows():
+                pcm_label = row['PCM_LABELS']
+                st.session_state.pcm_labels_info[pcm_label] = {
+                    'moyenne_salinite': row['PSAL'],
+                    'moyenne_temperature': row['TEMP'],
+                    'latitude': row['LATITUDE'],
+                    'longitude': row['LONGITUDE']
+                }
+            
+            
             st.session_state.button_fetch_data_pressed = False
             st.session_state.button_class_data_pressed = True
         else : 
             st.write("pas de donner argo à classifier !")
 
+    
 
     # Map canvas
     # créer un map folium avec la latitude et longitude 
@@ -403,17 +455,26 @@ def main():
             else:
                 color = 'blue'  
 
+            pcm_info = get_pcm_labels_info(pcm_labels_value,st.session_state.pcm_labels_info)
 
             # Créer un popup avec les informations du DataFrame
             popup_content = """
                     DEPTH: {}<br> 
-                    PCM_CLASS: {}<br>
                     LATITUDE : {}<br>
                     LONGITUDE : {}<br>
                     TIME : {}<br>
                     PSAL : {}<br>
                     TEMP : {}<br>
-                """.format(row['DEPTH'], row['PCM_LABELS'],row['LATITUDE'], row['LONGITUDE'], row['TIME'], row['PSAL'], row['TEMP'])
+                    PROFIL : {}<br>
+                    <br>
+                    PCM_CLASS: {}<br>
+                    PSAL MOY CLASS: {:.2f}<br>
+                    TEMP MOY CLASS: {:.2f}<br>
+                    LATITUDE MOY CLASS: {:.2f}<br>
+                    LONGITUDE MOY CLASS: {:.2f}<br>
+                """.format(row['DEPTH'],row['LATITUDE'], row['LONGITUDE'], row['TIME'], row['PSAL'], row['TEMP'], row['PROFIL'], row['PCM_LABELS'],
+               pcm_info['moyenne_salinite'], pcm_info['moyenne_temperature'],
+               pcm_info['latitude'], pcm_info['longitude'])
             folium.CircleMarker(location=[row['LATITUDE'], row['LONGITUDE']],
                             radius=3,  # taille du cercle 
                             color=color,  # couleur du cercle
@@ -523,6 +584,12 @@ def main():
     if st.session_state.graphs['preprocess'] is not None:
         with st.expander("pre-process data"):
             st.pyplot(st.session_state.graphs['preprocess'])
+    
+    ds_test = st.session_state.ds_py.copy(deep =True)
+    ds_test = ds_test.isel(DEPTH=0)
+    ds_test = ds_test.isel(quantile=0)
+    ds_test= ds_test.to_dataframe()
+    afficher_graphiques_interactifs(ds_test)
 
         
 
