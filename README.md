@@ -1,7 +1,3 @@
-Voici un exemple de README pour votre projet :
-
----
-
 # Projet argoPXPCM
 
 Ce projet permet de récupérer et d'analyser les données provenant de la flotte de bouées Argo, puis de les classifier à l'aide du modèle PCM (Probabilistic Counting Model).
@@ -77,9 +73,3 @@ Ce projet permet de récupérer et d'analyser les données provenant de la flott
 - `ds_pcm`: Dataset pour les résultats de la classification.
 - `graphs_updated`: Indique si les graphiques ont été mis à jour.
 - `graphs`: Dictionnaire pour stocker les graphiques à afficher.
-
-
-
----
-
-N'oubliez pas de personnaliser les liens vers votre dépôt GitHub et votre profil utilisateur. Vous pouvez également ajouter des captures d'écran ou des exemples d'utilisation dans la section appropriée.
