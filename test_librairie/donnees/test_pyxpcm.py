@@ -19,14 +19,14 @@ import seaborn
 # créer une box pour dataFetcher de argopy
 llon=-75;rlon=-45
 ulat=30;llat=20
-depthmin=0;depthmax=1000
+depthmin=0;depthmax=600
 # Time range des donnnées
 time_in='2010-01-01'
-time_f='2010-02-01'
+time_f='2010-12-12'
 
 
 #recuperer les données avec argopy
-ds_points = ArgoDataFetcher(src='erddap').region([llon,rlon, llat,ulat, depthmin, depthmax,time_in,time_f]).to_xarray()
+ds_points = ArgoDataFetcher(src='erddap').region([llon,rlon, llat,ulat, depthmin, 700,time_in,time_f]).to_xarray()
 #mettre en 2 dimensions ( N_PROf x N_LEVELS)
 ds = ds_points.argo.point2profile()
 #recuperer les données SIG0 et N2(BRV2) avec teos 10
@@ -36,11 +36,13 @@ ds.argo.teos10(['SIG0','N2'])
 print(ds)
 
 # z est créé pour représenter des profondeurs de 0 à la profondeur maximale avec un intervalle de 5 mètres ( peux etre modifié)
-z=np.arange(0,depthmax,5)
+depthmax = depthmax + 10
+z=np.arange(0,depthmax,10)
 #interpole ds avec les profondeurs z
+print(z)
 ds2 = ds.argo.interp_std_levels(z)
-
-
+print ("ici")
+print(ds2)
 
 #Calculer la profondeur avec gsw.z_from_p a partir de la p (PRES) et de lat (LATITUDE)
 p=np.array(ds2.PRES)
@@ -120,7 +122,7 @@ print(da)
 X, sampling_dims = m.preprocessing(das, features=features_in_ds)
 print(X)
 
-#m.plot.scaler()
+m.plot.scaler()
 #m.plot.reducer()
 #g = m.plot.preprocessed(das, features=features_in_ds, style='darkgrid')
 #g = m.plot.preprocessed(das, features=features_in_ds, kde=True)
