@@ -7,7 +7,8 @@
 
 from statistics import mean
 import gsw
-from matplotlib import pyplot as plt 
+from matplotlib import pyplot as plt
+from sklearn.decomposition import PCA 
 import streamlit as st
 import xarray as xr
 from argopy import DataFetcher as ArgoDataFetcher
@@ -23,6 +24,10 @@ from argopy import DataFetcher as ArgoDataFetcher
 import math
 import plotly.express as px
 import plotly.graph_objects as go
+
+
+#def scaler_interactif(ds):
+    
 
 def afficher_graphiques_interactifs(df_points):
     if df_points.empty:
@@ -612,11 +617,74 @@ def main():
         with st.expander("pre-process data"):
             st.pyplot(st.session_state.graphs['preprocess'])
     
-    #ds_test = st.session_state.ds_py.copy(deep =True)
-    ##ds_test = ds_test.isel(DEPTH=0)
-    #ds_test = ds_test.isel(quantile=0)
-    #ds_test= ds_test.to_dataframe()
-    #afficher_graphiques_interactifs(ds_test)
+
+    # scaler 
+    ds_data = st.session_state.ds_py.copy(deep =True)
+    depth_values = ds_data.coords['DEPTH'].values
+    ds_data = ds_data.to_dataframe()
+    mean_psal = ds_data.groupby('DEPTH')['PSAL'].mean()
+    std_psal = ds_data.groupby('DEPTH')['PSAL'].std()
+    mean_temp = ds_data.groupby('DEPTH')['TEMP'].mean()
+    std_temp = ds_data.groupby('DEPTH')['TEMP'].std()
+    
+    data = pd.DataFrame({
+    'DEPTH': depth_values,
+    'MEAN_PSAL': [mean_psal[depth] for depth in depth_values],
+    'STD_PSAL' : [std_psal[depth] for depth in depth_values],
+    'MEAN_TEMP': [mean_temp[depth] for depth in depth_values],
+    'STD_TEMP' : [std_temp[depth] for depth in depth_values]
+
+    })
+    st.write(data)
+
+    fig = px.line(data, x='MEAN_PSAL', y='DEPTH',title= "Scaler PSAL MEAN")
+    st.plotly_chart(fig, use_container_width=True)
+    fig = px.line(data, x='STD_PSAL', y='DEPTH',title= "Scaler PSAL STD")
+    st.plotly_chart(fig, use_container_width=True)
+
+    fig = px.line(data, x='MEAN_TEMP', y='DEPTH',title= "Scaler TEMP MEAN")
+    st.plotly_chart(fig, use_container_width=True)
+
+    fig = px.line(data, x='STD_TEMP', y='DEPTH',title= "Scaler TEMP STD")
+    st.plotly_chart(fig, use_container_width=True)
+
+    
+    
+    #reducer PSAL
+    ds_reducer = st.session_state.ds_py.copy(deep=True)
+    psal_reducer = ds_reducer['PSAL'].values
+    depth_reducer = ds_reducer.coords['DEPTH'].values
+    pca = PCA(n_components=3, svd_solver = 'full')
+    df = pca.fit(psal_reducer)
+    components = pca.components_
+    fig, ax = plt.subplots()
+    for i in range(3):
+        ax.plot(components[i],depth_reducer, label=f'PCA {i+1}')
+    
+    ax.set_xlabel('Valeurs PCA')
+    ax.set_ylabel('Profondeur')
+    ax.set_title('PCA PSAL')
+    ax.legend()
+    st.pyplot(fig)
+
+
+    #quantile 
+    ds_quantile = st.session_state.ds_py.copy(deep=True)
+    depth_quantile = ds_quantile.coords['DEPTH'].values
+    taille_quantile = ds_quantile['quantile'].shape[0] 
+    fig, ax = plt.subplots()  # Utilisation de plt.subplots() pour créer la figure et l'axe
+
+    for i in range(taille_quantile):
+        ds_quantile = st.session_state.ds_py.copy(deep=True)
+        ds_quantile = ds_quantile.isel(quantile=i)
+        ds_quantile = ds_quantile.isel(pcm_class=0)
+        ax.plot(ds_quantile['PSAL_Q'].values, depth_quantile,label=ds_quantile['quantile'].values)
+
+    ax.legend()
+    ax.set_xlabel('PSAL')
+    ax.set_ylabel('Profondeur')
+    ax.set_title(f'Quantile PSAL')
+    st.pyplot(fig)
 
         
 
