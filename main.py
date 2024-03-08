@@ -26,7 +26,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
+
     
+
 def scaler_mean_interactifs(ds_py,scaler_target:str):
     ds_data = ds_py.copy(deep =True)
     depth_values = ds_data.coords['DEPTH'].values
@@ -703,7 +705,7 @@ def main():
             
     if st.session_state.graphs['scaler'] is not None:
         with st.expander("scaler propertie"):
-            if grap_pyxpcm_ok:
+            if scal_pyxpcm:
                 st.pyplot(st.session_state.graphs['scaler'])
             else :
                 st.plotly_chart(st.session_state.graphs['scaler'])
