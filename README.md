@@ -45,7 +45,7 @@ Ce projet permet de récupérer et d'analyser les données provenant de la flott
   - Cliquez sur le bouton "Récupérer les données" pour récupérer les données Argo correspondantes.
 
 - **Classifier les données** :
-  - Définissez les paramètres du modèle PCM (nombre de clusters, variables à utiliser, etc.) dans la zone de paramètres PyXPCM.
+  - Définissez les paramètres de pyXPCM (nombre de clusters, variables à utiliser, etc.) dans la zone de paramètres PyXPCM.
   - Cliquez sur le bouton "Classifier les données" pour appliquer le modèle PCM aux données récupérées.
 
 - **Visualiser les résultats** :
@@ -58,7 +58,7 @@ Ce projet permet de récupérer et d'analyser les données provenant de la flott
 
 - `recup_argo_data(llon, rlon, llat, ulat, depthmin, depthmax, intervalle, time_in, time_f)`
 
-### Classification avec le modèle PCM
+### Classification avec PyXPCM
 
 - `pyxpcm_sal_temp(da, k, quan, varmax)`: Profil de salinité et température
 - `pyxpcm_sal(da, k, quan, varmax)`: Profil de salinité uniquement
