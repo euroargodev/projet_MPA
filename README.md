@@ -1,6 +1,6 @@
 # Projet argoPXPCM
 
-Ce projet permet de récupérer et d'analyser les données provenant de la flotte de bouées Argo, puis de les classifier à l'aide du modèle PCM (Probabilistic Counting Model).
+Ce projet permet de récupérer et d'analyser les données provenant de la flotte de bouées Argo, puis de les classifier à l'aide de Pyxpcm
 
 ## Prérequis
 
@@ -10,6 +10,7 @@ Ce projet permet de récupérer et d'analyser les données provenant de la flott
 - Xarray
 - Argopy
 - Gsw (Thermodynamic Equation of Seawater 2010)
+- Pyxpcm
 
 ## Installation
 
