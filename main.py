@@ -26,21 +26,85 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-#def scaler_interactif(ds):
+    
+def scaler_mean_interactifs(ds_py,scaler_target:str):
+    ds_data = ds_py.copy(deep =True)
+    depth_values = ds_data.coords['DEPTH'].values
+    ds_data = ds_data.to_dataframe()
+    mean = ds_data.groupby('DEPTH')[scaler_target].mean()
+    
+    data = pd.DataFrame({
+    'DEPTH': depth_values,
+    'MEAN' : [mean[depth] for depth in depth_values],
+
+    })
+    titlefig = "Scaler " + scaler_target + " MEAN"
+
+    fig = px.line(data, x='MEAN', y='DEPTH',title= titlefig)
+    return fig
+
+
+def scaler_std_interactifs(ds_py,scaler_target:str):
+    # scaler 
+    ds_data = ds_py.copy(deep =True)
+    depth_values = ds_data.coords['DEPTH'].values
+    ds_data = ds_data.to_dataframe()
+    std = ds_data.groupby('DEPTH')[scaler_target].std()
+    
+    data = pd.DataFrame({
+    'DEPTH': depth_values,
+    'STD' : [std[depth] for depth in depth_values],
+
+    })
+    titlefig = "Scaler " + scaler_target + " STD"
+
+    fig = px.line(data, x='STD', y='DEPTH',title= titlefig)
+    return fig
+
+def reducer_interactif(ds_py,reducer_target:str,maxvar:int):
+    #reducer PSAL
+    ds_reducer = ds_py.copy(deep=True)
+    data_reducer = ds_reducer[reducer_target].values
+    depth_reducer = ds_reducer.coords['DEPTH'].values
+
+    pca = PCA(n_components=maxvar, svd_solver = 'full')
+    pca.fit(data_reducer)
+    components = pca.components_
+
+    titlefig = "PCA " + reducer_target
+    fig, ax = plt.subplots()
+    for i in range(maxvar):
+        ax.plot(components[i],depth_reducer, label=f'PCA {i+1}')
+    
+    ax.set_xlabel('Valeurs PCA')
+    ax.set_ylabel('Profondeur')
+    ax.set_title(titlefig)
+    ax.legend()
+
+    return fig, ax
+    
+def quantile_interactif(ds_py,quantile_target:str,class_target:int):
+     #quantile 
+    ds_quantile = ds_py.copy(deep=True)
+    depth_quantile = ds_quantile.coords['DEPTH'].values
+    taille_quantile = ds_quantile['quantile'].shape[0] 
+    fig, ax = plt.subplots() 
+
+    for i in range(taille_quantile):
+        ds_quantile = st.session_state.ds_py.copy(deep=True)
+        ds_quantile = ds_quantile.isel(quantile=i)
+        ds_quantile = ds_quantile.isel(pcm_class=class_target)
+        ax.plot(ds_quantile[quantile_target].values, depth_quantile,label=ds_quantile['quantile'].values)
+
+    titlefig = "Quantile "+ quantile_target + " class : " + str(class_target)
+    ax.legend()
+    ax.set_xlabel(quantile_target)
+    ax.set_ylabel('DEPTH')
+    ax.set_title(titlefig)
+    return fig, ax
+    
     
 
-def afficher_graphiques_interactifs(df_points):
-    if df_points.empty:
-        return
-    # Create an interactive scatter plot with colored clusters
-    fig = px.scatter(df_points, x='TEMP', y='PSAL', color='PCM_LABELS',
-                     hover_data=['PSAL', 'LATITUDE', 'LONGITUDE', 'TIME'],
-                     title="Graphique interactif après clustering",
-                     labels={'TEMP': 'Temperature', 'PSAL': 'salinité'},
-                     width=800, height=600)
-
-    # Display the plot
-    st.plotly_chart(fig, use_container_width=True)
 
 #Display pcm_info
 def get_pcm_labels_info(pcm_labels_value,pcm_labels_info):
@@ -365,25 +429,40 @@ def main():
     with st.sidebar.expander("Quantile Graph"):
         graph_quan_ok = st.checkbox("Show Quantile Graph", value=True)
         if graph_quan_ok:
-            quan_maxcols = st.number_input("Maximum Columns", value= 4 )
-            quan_figsizex = st.number_input("Figure Size X", value= 10)
-            quan_figsizey = st.number_input("Figure Size Y", value=8)
+            quan_pyxpcm = st.checkbox("quantile pyxpcm ?",value= True)
+            if quan_pyxpcm:
+                quan_maxcols = st.number_input("Maximum Columns", value= 4 )
+                quan_figsizex = st.number_input("Figure Size X", value= 10)
+                quan_figsizey = st.number_input("Figure Size Y", value=8)
+            else :
+                quand_class = st.number_input("class quantile", value=0, max_value= (clusters-1), min_value=0)
+
 
     with st.sidebar.expander("Scaler Graph (Means and Std)"):
         graph_scal_ok =  st.checkbox("Show Scaler Graph",value= True)
         if graph_scal_ok:
-            scal_style = st.selectbox("style scaler",('whitegrid','darkgrid','white','dark'))
-            scal_colorLine = st.selectbox("color line scaler",('red','blue','green','cyan', 'magenta', 'yellow', 'black'))
-            scal_sizeLine = st.number_input("size line scaler", value=1.5, max_value= 4.0, min_value=0.5)
-            scal_axeY = st.slider("marge Y scaler", min_value=-depthmin, max_value=-depthmax, value=[-depthmax, -depthmin])
+            scal_pyxpcm = st.checkbox("scaler pyxpcm ?",value= True)
+            if scal_pyxpcm:
+                scal_style = st.selectbox("style scaler",('whitegrid','darkgrid','white','dark'))
+                scal_colorLine = st.selectbox("color line scaler",('red','blue','green','cyan', 'magenta', 'yellow', 'black'))
+                scal_sizeLine = st.number_input("size line scaler", value=1.5, max_value= 4.0, min_value=0.5)
+                scal_axeY = st.slider("marge Y scaler", min_value=-depthmin, max_value=-depthmax, value=[-depthmax, -depthmin])
+            else:
+                scal_target = st.selectbox("target scaler",('TEMP','PSAL'))
+                scal_op = st.selectbox("operation scaler",('MEAN','STD'))
 
     with st.sidebar.expander("Reducer Graph"):
         graph_redu_ok =  st.checkbox("Show Reducer Graph ",value= True)
         if graph_redu_ok:
-            redu_PCA = st.number_input("number of PCA ", min_value=1, max_value=maxVARS, value=2)
-            redu_style = st.selectbox("style reducer",('whitegrid','darkgrid','white','dark'))
-            redu_sizeLine = st.number_input("size line reducer", value=1.5, max_value= 4.0, min_value=0.5)
-            redu_axeY = st.slider("marge Y reducer", min_value=-depthmin, max_value=-depthmax, value=[-depthmax, -depthmin])
+            redu_pyxpcm = st.checkbox("reducer pyxpcm ?",value= True)
+            if redu_pyxpcm:
+                redu_PCA = st.number_input("number of PCA ", min_value=1, max_value=maxVARS, value=2)
+                redu_style = st.selectbox("style reducer",('whitegrid','darkgrid','white','dark'))
+                redu_sizeLine = st.number_input("size line reducer", value=1.5, max_value= 4.0, min_value=0.5)
+                redu_axeY = st.slider("marge Y reducer", min_value=-depthmin, max_value=-depthmax, value=[-depthmax, -depthmin])
+            else : 
+                redu_PCA = st.number_input("number of PCA ", min_value=1, max_value=10, value=2)
+                redu_target = st.selectbox("target reducer",('TEMP','PSAL'))
 
     
     with st.sidebar.expander("Pre-process data Graph"):
@@ -532,28 +611,45 @@ def main():
                    
             if ('TEMP_Q' in st.session_state.ds_py) and (graph_quan_ok):
                 with st.expander("quantile temperature"):
-                    fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['TEMP_Q'], maxcols=quan_maxcols, figsize=(quan_figsizex, quan_figsizey), sharey=True)
+                    if quan_pyxpcm:
+                        fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['TEMP_Q'], maxcols=quan_maxcols, figsize=(quan_figsizex, quan_figsizey), sharey=True)
+                    else :
+                        fig,ax = quantile_interactif(st.session_state.ds_py,'TEMP_Q',quand_class)
                     st.session_state.graphs['quantile_temp'] = fig
             elif not graph_quan_ok:
                st.session_state.graphs['quantile_temp'] = None
                     
             if ('PSAL_Q' in st.session_state.ds_py) and (graph_quan_ok):   
                 with st.expander("quantile salinité"): 
-                    fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['PSAL_Q'],maxcols=quan_maxcols, figsize=(quan_figsizex, quan_figsizey), sharey=True)
+                    if quan_pyxpcm:
+                        fig, ax = st.session_state.m.plot.quantile(st.session_state.ds_py['PSAL_Q'],maxcols=quan_maxcols, figsize=(quan_figsizex, quan_figsizey), sharey=True)
+                    else :
+                        fig,ax = quantile_interactif(st.session_state.ds_py,'PSAL_Q',quand_class)
                     st.session_state.graphs['quantile_sal'] = fig
             elif not graph_quan_ok:
                st.session_state.graphs['quantile_temp'] = None
 
             if graph_scal_ok:
                 with st.expander("scaler propertie"):
-                    fig, ax = st.session_state.m.plot.scaler(style =scal_style,plot_kw={'color': scal_colorLine, 'linewidth': scal_sizeLine},subplot_kw={'ylim':[scal_axeY[0],scal_axeY[1]]} )
+                    if scal_pyxpcm:
+                        fig, ax = st.session_state.m.plot.scaler(style =scal_style,plot_kw={'color': scal_colorLine, 'linewidth': scal_sizeLine},subplot_kw={'ylim':[scal_axeY[0],scal_axeY[1]]} )
+                    else :
+                        if scal_op == 'MEAN':
+                                fig = scaler_mean_interactifs(st.session_state.ds_py,scal_target)
+                        else:
+                                fig = scaler_mean_interactifs(st.session_state.ds_py,scal_target)
                     st.session_state.graphs['scaler'] = fig
             else:
                 st.session_state.graphs['scaler'] = None
 
             if graph_redu_ok : 
                 with st.expander("reducer properties"):
-                    fig, ax = st.session_state.m.plot.reducer(pcalist = range(0,redu_PCA),style =redu_style,plot_kw={'linewidth': redu_sizeLine},subplot_kw={'ylim':[redu_axeY[0],redu_axeY[1]]} )
+                    if redu_pyxpcm:
+                        grap_pyxpcm_ok = True
+                        fig, ax = st.session_state.m.plot.reducer(pcalist = range(0,redu_PCA),style =redu_style,plot_kw={'linewidth': redu_sizeLine},subplot_kw={'ylim':[redu_axeY[0],redu_axeY[1]]} )
+                    else:
+                        grap_pyxpcm_ok = False
+                        fig,ax = reducer_interactif(st.session_state.ds_py,redu_target,redu_PCA)
                     st.session_state.graphs['reducer'] = fig
             else: 
                 st.session_state.graphs['reducer'] = None
@@ -607,8 +703,10 @@ def main():
             
     if st.session_state.graphs['scaler'] is not None:
         with st.expander("scaler propertie"):
-            st.pyplot(st.session_state.graphs['scaler'])
-            
+            if grap_pyxpcm_ok:
+                st.pyplot(st.session_state.graphs['scaler'])
+            else :
+                st.plotly_chart(st.session_state.graphs['scaler'])
     if st.session_state.graphs['reducer'] is not None:
         with st.expander("reducer properties"):
             st.pyplot(st.session_state.graphs['reducer'])
@@ -617,84 +715,6 @@ def main():
         with st.expander("pre-process data"):
             st.pyplot(st.session_state.graphs['preprocess'])
     
-
-    # scaler 
-    ds_data = st.session_state.ds_py.copy(deep =True)
-    depth_values = ds_data.coords['DEPTH'].values
-    ds_data = ds_data.to_dataframe()
-    mean_psal = ds_data.groupby('DEPTH')['PSAL'].mean()
-    std_psal = ds_data.groupby('DEPTH')['PSAL'].std()
-    mean_temp = ds_data.groupby('DEPTH')['TEMP'].mean()
-    std_temp = ds_data.groupby('DEPTH')['TEMP'].std()
-    
-    data = pd.DataFrame({
-    'DEPTH': depth_values,
-    'MEAN_PSAL': [mean_psal[depth] for depth in depth_values],
-    'STD_PSAL' : [std_psal[depth] for depth in depth_values],
-    'MEAN_TEMP': [mean_temp[depth] for depth in depth_values],
-    'STD_TEMP' : [std_temp[depth] for depth in depth_values]
-
-    })
-    st.write(data)
-
-    fig = px.line(data, x='MEAN_PSAL', y='DEPTH',title= "Scaler PSAL MEAN")
-    st.plotly_chart(fig, use_container_width=True)
-    fig = px.line(data, x='STD_PSAL', y='DEPTH',title= "Scaler PSAL STD")
-    st.plotly_chart(fig, use_container_width=True)
-
-    fig = px.line(data, x='MEAN_TEMP', y='DEPTH',title= "Scaler TEMP MEAN")
-    st.plotly_chart(fig, use_container_width=True)
-
-    fig = px.line(data, x='STD_TEMP', y='DEPTH',title= "Scaler TEMP STD")
-    st.plotly_chart(fig, use_container_width=True)
-
-    
-    
-    #reducer PSAL
-    ds_reducer = st.session_state.ds_py.copy(deep=True)
-    psal_reducer = ds_reducer['PSAL'].values
-    depth_reducer = ds_reducer.coords['DEPTH'].values
-    pca = PCA(n_components=3, svd_solver = 'full')
-    df = pca.fit(psal_reducer)
-    components = pca.components_
-    fig, ax = plt.subplots()
-    for i in range(3):
-        ax.plot(components[i],depth_reducer, label=f'PCA {i+1}')
-    
-    ax.set_xlabel('Valeurs PCA')
-    ax.set_ylabel('Profondeur')
-    ax.set_title('PCA PSAL')
-    ax.legend()
-    st.pyplot(fig)
-
-
-    #quantile 
-    ds_quantile = st.session_state.ds_py.copy(deep=True)
-    depth_quantile = ds_quantile.coords['DEPTH'].values
-    taille_quantile = ds_quantile['quantile'].shape[0] 
-    fig, ax = plt.subplots()  # Utilisation de plt.subplots() pour créer la figure et l'axe
-
-    for i in range(taille_quantile):
-        ds_quantile = st.session_state.ds_py.copy(deep=True)
-        ds_quantile = ds_quantile.isel(quantile=i)
-        ds_quantile = ds_quantile.isel(pcm_class=0)
-        ax.plot(ds_quantile['PSAL_Q'].values, depth_quantile,label=ds_quantile['quantile'].values)
-
-    ax.legend()
-    ax.set_xlabel('PSAL')
-    ax.set_ylabel('Profondeur')
-    ax.set_title(f'Quantile PSAL')
-    st.pyplot(fig)
-
-        
-
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     main()
